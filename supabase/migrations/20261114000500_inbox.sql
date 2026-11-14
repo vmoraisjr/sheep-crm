@@ -13,3 +13,4 @@ create table public.manual_reply_requests (
 alter table public.manual_reply_requests enable row level security;
 -- Server route uses service-role only after authenticating and resolving the tenant.
 revoke all on public.manual_reply_requests from anon,authenticated;
+grant select,insert,update,delete on public.manual_reply_requests to service_role;
