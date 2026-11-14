@@ -76,3 +76,4 @@ begin
 end $$;
 revoke all on function public.claim_automation_outbox() from public,anon,authenticated;
 grant execute on function public.claim_automation_outbox() to service_role;
+grant select,insert,update,delete on public.automation_settings,public.automation_decisions,public.automation_outbox to service_role;
