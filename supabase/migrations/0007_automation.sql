@@ -77,3 +77,17 @@ end $$;
 revoke all on function public.claim_automation_outbox() from public,anon,authenticated;
 grant execute on function public.claim_automation_outbox() to service_role;
 grant select,insert,update,delete on public.automation_settings,public.automation_decisions,public.automation_outbox to service_role;
+create function public.complete_automation_outbox(p_org uuid,p_id uuid,p_provider text) returns void language plpgsql security invoker set search_path=public as $$
+declare item public.automation_outbox; c public.conversations; inbound public.messages;
+begin
+ select * into strict item from public.automation_outbox where organization_id=p_org and id=p_id and status='sending' for update;
+ select * into strict c from public.conversations where organization_id=p_org and id=item.conversation_id;
+ select * into strict inbound from public.messages where organization_id=p_org and id=item.message_id;
+ insert into public.messages(organization_id,conversation_id,channel_id,provider_message_id,direction,text,occurred_at,origin,status)
+ values(p_org,c.id,c.channel_id,p_provider,'outbound',item.text,now(),'meta','sent') on conflict(organization_id,channel_id,provider_message_id) do nothing;
+ insert into public.usage_events(organization_id,event_key,kind,quantity) values(p_org,'automation-message:'||item.id,'message',1) on conflict do nothing;
+ update public.conversations set unanswered=false where organization_id=p_org and id=c.id and last_inbound_at<=inbound.occurred_at;
+ update public.automation_outbox set status='sent',provider_message_id=p_provider where id=item.id;
+end $$;
+revoke all on function public.complete_automation_outbox(uuid,uuid,text) from public,anon,authenticated;
+grant execute on function public.complete_automation_outbox(uuid,uuid,text) to service_role;

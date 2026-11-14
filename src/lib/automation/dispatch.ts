@@ -25,7 +25,9 @@ export async function dispatchAutomationOutbox(db:SupabaseClient){
     providerId=result.providerMessageId;status='sent';
    }
   }catch{status='uncertain';}
-  const updated=await db.from('automation_outbox').update({status,provider_message_id:providerId??null}).eq('organization_id',job.organization_id).eq('id',job.id).eq('status','sending');
+  const updated=status==='sent'&&providerId
+   ? await db.rpc('complete_automation_outbox',{p_org:job.organization_id,p_id:job.id,p_provider:providerId})
+   : await db.from('automation_outbox').update({status,provider_message_id:providerId??null}).eq('organization_id',job.organization_id).eq('id',job.id).eq('status','sending');
   if(updated.error)throw updated.error;
   results.push({id:job.id,status});
  }
