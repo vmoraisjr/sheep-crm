@@ -26,7 +26,8 @@ export async function POST(request: Request, { params }: { params:Promise<{id:st
   if(!url || !key) return NextResponse.json({error:'Processamento seguro indisponível.'},{status:503});
   const db=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
   const requestKey=parsed.data.idempotencyKey;
-  const {data:prior}=await db.from('manual_reply_requests').select('status,message_id').eq('organization_id',organizationId).eq('idempotency_key',requestKey).maybeSingle();
+  const {data:prior}=await db.from('manual_reply_requests').select('status,message_id,conversation_id').eq('organization_id',organizationId).eq('idempotency_key',requestKey).maybeSingle();
+  if(prior && prior.conversation_id!==id) return NextResponse.json({error:'Chave já utilizada em outra conversa.'},{status:409});
   if(prior) return NextResponse.json({status:prior.status,messageId:prior.message_id},{status:prior.status==='sent'?200:202});
   const messageId=crypto.randomUUID();
   const origin=channel.status==='simulated'?'simulated':'meta';
