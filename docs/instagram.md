@@ -28,3 +28,5 @@ POST admin same-origin `/api/integrations/instagram/refresh` renova conexões co
 6. Só liberar piloto após registrar evidências reais e revisar restrições/permissões atuais. Pendências externas não são testes aprovados.
 
 Retenção: jobs concluídos contêm mensagens normalizadas e devem ser removidos segundo política do tenant. Remover estados OAuth expirados diariamente; excluir credenciais/jobs/receipts ao desconectar/excluir tenant; registrar auditoria sem token ou conteúdo de Direct. Restore exige mesma chave de criptografia; rotação deve descriptografar/recriptografar no servidor em operação controlada.
+
+Worker HTTP opcional: configurar `INSTAGRAM_WORKER_SECRET` aleatório >=32 caracteres e agendar POST `/api/internal/instagram-worker` com `Authorization: Bearer <secret>` a cada minuto. Não expor segredo no navegador. O endpoint chama a mesma função SQL e retorna apenas quantidade processada; ausência de segredo/configuração falha fechada (503).

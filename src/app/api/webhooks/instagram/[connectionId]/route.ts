@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import { instagramRuntime } from '@/lib/channels/instagram/runtime';
 import { verifySignature } from '@/lib/channels/instagram/security';
+import { boundedBody } from '@/lib/channels/instagram/request';
 import { normalizeInstagram } from '@/lib/channels/instagram/webhook';
 export const runtime = 'nodejs';
 type Context = { params: Promise<{ connectionId: string }> };
@@ -25,9 +26,8 @@ export async function GET(request: Request, context: Context) {
 export async function POST(request: Request, context: Context) {
   const found = await connection(context);
   if (!found) return new Response('Integration unavailable', { status: 503 });
-  if (Number(request.headers.get('content-length') || 0) > 1_048_576) return new Response('Too large', { status: 413 });
-  const raw = await request.text();
-  if (Buffer.byteLength(raw) > 1_048_576) return new Response('Too large', { status: 413 });
+  let raw: string;
+  try { raw = await boundedBody(request); } catch { return new Response('Too large', { status: 413 }); }
   if (!verifySignature(raw, request.headers.get('x-hub-signature-256'), found.configured.appSecret)) return new Response('Forbidden', { status: 403 });
   try {
     if (!found.data.channel_id) return new Response('Channel not provisioned', { status: 503 });

@@ -85,3 +85,11 @@ describe('Instagram outbound delivery idempotency', () => {
   expect(request).toHaveBeenCalledTimes(1);
  });
 });
+
+import { boundedBody } from '../src/lib/channels/instagram/request';
+it('rejects oversized chunked unauthenticated bodies before buffering entire stream', async () => {
+ const stream=new ReadableStream<Uint8Array>({start(controller){controller.enqueue(new Uint8Array(6));controller.enqueue(new Uint8Array(6));controller.close();}});
+ const request=new Request('https://example.org/webhook',{method:'POST',body:stream,duplex:'half'} as RequestInit);
+ await expect(boundedBody(request,10)).rejects.toThrow('BODY_TOO_LARGE');
+ expect(await boundedBody(new Request('https://example.org/webhook',{method:'POST',body:'raw'}))).toBe('raw');
+});
