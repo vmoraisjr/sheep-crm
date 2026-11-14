@@ -7,7 +7,7 @@ export async function POST(request: Request) {
   const workerSecret = process.env.WHATSAPP_WORKER_SECRET;
   const token = request.headers.get('authorization') ?? '';
   const expected = `Bearer ${workerSecret}`;
-  if (!workerSecret || token.length !== expected.length || !timingSafeEqual(Buffer.from(token), Buffer.from(expected))) return new Response('Unauthorized', { status: 401 });
+  if (!workerSecret || Buffer.byteLength(token) !== Buffer.byteLength(expected) || !timingSafeEqual(Buffer.from(token), Buffer.from(expected))) return new Response('Unauthorized', { status: 401 });
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return new Response('Worker not configured', { status: 503 });

@@ -5,7 +5,8 @@ create table public.whatsapp_connections (
   phone_number_id text primary key,
   encrypted_access_token text not null,
   created_at timestamptz not null default now(),
-  unique (organization_id, channel_id)
+  unique (organization_id, channel_id),
+  foreign key (organization_id,channel_id) references public.channels(organization_id,id) on delete cascade
 );
 alter table public.whatsapp_connections enable row level security;
 -- No user policy: encrypted secrets are service-role-only.
@@ -21,7 +22,8 @@ create table public.whatsapp_webhook_jobs (
   available_at timestamptz not null default now(),
   claimed_at timestamptz,
   created_at timestamptz not null default now(),
-  unique (organization_id, channel_id, event_key)
+  unique (organization_id, channel_id, event_key),
+  foreign key (organization_id,channel_id) references public.channels(organization_id,id) on delete cascade
 );
 alter table public.whatsapp_webhook_jobs enable row level security;
 revoke all on public.whatsapp_webhook_jobs from anon, authenticated;

@@ -47,7 +47,7 @@ export function normalizeWhatsAppMessage(payload: Record<string, unknown>, conte
 export function verifyChallenge(url: URL, verifyToken: string): string | null {
   const candidate = url.searchParams.get('hub.verify_token') ?? '';
   const challenge = url.searchParams.get('hub.challenge');
-  if (!verifyToken || url.searchParams.get('hub.mode') !== 'subscribe' || !challenge || challenge.length > 256 || candidate.length !== verifyToken.length) return null;
+  if (!verifyToken || url.searchParams.get('hub.mode') !== 'subscribe' || !challenge || challenge.length > 256 || Buffer.byteLength(candidate) !== Buffer.byteLength(verifyToken)) return null;
   return timingSafeEqual(Buffer.from(candidate), Buffer.from(verifyToken)) ? challenge : null;
 }
 export async function receiveWhatsAppWebhook(rawBody: string, signature: string | null, appSecret: string, enqueue: (events: WhatsAppEnvelope[]) => Promise<void>): Promise<number> {
