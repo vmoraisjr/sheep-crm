@@ -1,6 +1,6 @@
 import type { ChannelKind } from '../domain/types';
 export interface FollowupJob {
- id:string; organizationId:string; conversationId:string; opportunityId:string; idempotencyKey:string;
+ id:string; claimToken:string; organizationId:string; conversationId:string; opportunityId:string; idempotencyKey:string;
  channelKind:ChannelKind; channelId:string; recipientId:string; dueAt:string; createdAt:string;
  lastInboundAt:string; consent:boolean; optedOut:boolean; humanPaused:boolean;
  opportunityStage:string; attempts:number; text:string; template?:{name:string;language:string;approved:boolean};

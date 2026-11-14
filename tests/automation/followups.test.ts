@@ -1,7 +1,7 @@
 import { describe,it,expect } from 'vitest';
 import {followupBlockReason,runFollowups,SafeRetryError,type FollowupJob,type FollowupRepository} from '../../src/lib/followups/scheduler';
 const now=new Date('2026-01-03T12:00:00Z');
-const job=(patch:Partial<FollowupJob>={}):FollowupJob=>({id:'j',organizationId:'a',conversationId:'c',opportunityId:'o',idempotencyKey:'once',channelKind:'whatsapp',channelId:'wa',recipientId:'123456789',dueAt:now.toISOString(),createdAt:'2026-01-03T11:00:00Z',lastInboundAt:'2026-01-03T10:00:00Z',consent:true,optedOut:false,humanPaused:false,opportunityStage:'qualified',attempts:1,text:'Retornando sua solicitação',...patch});
+const job=(patch:Partial<FollowupJob>={}):FollowupJob=>({id:'j',claimToken:'lease-1',organizationId:'a',conversationId:'c',opportunityId:'o',idempotencyKey:'once',channelKind:'whatsapp',channelId:'wa',recipientId:'123456789',dueAt:now.toISOString(),createdAt:'2026-01-03T11:00:00Z',lastInboundAt:'2026-01-03T10:00:00Z',consent:true,optedOut:false,humanPaused:false,opportunityStage:'qualified',attempts:1,text:'Retornando sua solicitação',...patch});
 const repo=(jobs:FollowupJob[])=>{const outcomes:string[]=[];const store:FollowupRepository={async claim(){const found=jobs.splice(0);return found;},async prepare(j){return j;},async cancel(_,reason){outcomes.push('cancelled:'+reason);},async complete(_,__,origin){outcomes.push('sent:'+origin);},async fail(_,state){outcomes.push(state);}};return {store,outcomes};};
 describe('follow-up compliance',()=>{
  it.each([{optedOut:true},{consent:false},{humanPaused:true},{opportunityStage:'won'},{opportunityStage:'lost'},{lastInboundAt:'2026-01-03T11:30:00Z'}])('blocks unsafe job %j',patch=>expect(followupBlockReason(job(patch),now)).not.toBeNull());
