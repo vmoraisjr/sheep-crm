@@ -45,3 +45,17 @@ end $$;
 revoke all on function public.claim_followups(timestamptz,integer),public.prepare_followup(uuid,uuid,uuid,timestamptz) from public,anon,authenticated;
 grant execute on function public.claim_followups(timestamptz,integer),public.prepare_followup(uuid,uuid,uuid,timestamptz) to service_role;
 grant select,insert,update,delete on public.followup_audit,public.whatsapp_approved_templates to service_role;
+
+-- Authenticated simulation ingest may cancel schedules without receiving worker-state write access.
+create function public.cancel_conversation_followups(p_org uuid,p_conversation uuid) returns void language plpgsql security definer set search_path='' as $$
+begin
+ if current_setting('role',true)<>'service_role' and not public.is_org_member(p_org) then raise exception 'Tenant inaccessible';end if;
+ update public.followups set status='cancelled',last_error='customer_replied' where organization_id=p_org and conversation_id=p_conversation and status in ('pending','claimed');
+end $$;
+revoke all on function public.cancel_conversation_followups(uuid,uuid) from public,anon;
+grant execute on function public.cancel_conversation_followups(uuid,uuid) to authenticated,service_role;
+do $$ declare definition text; begin
+ definition=pg_get_functiondef('public.ingest_inbound(jsonb)'::regprocedure);
+ definition=replace(definition,'update public.followups set status=''cancelled'' where organization_id=org and conversation_id=conv.id and status in (''pending'',''claimed'');','perform public.cancel_conversation_followups(org,conv.id);');
+ execute definition;
+end $$;
