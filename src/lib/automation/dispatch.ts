@@ -9,10 +9,10 @@ export async function dispatchAutomationOutbox(db:SupabaseClient){
  for(const job of jobs??[]){
   let status='cancelled',providerId:string|undefined;
   try{
-   const [conversation,profile]=await Promise.all([db.from('conversations').select('*,contacts(*)').eq('organization_id',job.organization_id).eq('id',job.conversation_id).single(),db.from('onboarding_profiles').select('agent_enabled,approved_at,revision,approved_revision').eq('organization_id',job.organization_id).single()]);
-   if(conversation.error||profile.error)throw new Error('Context unavailable');
+   const [conversation,profile,inbound]=await Promise.all([db.from('conversations').select('*,contacts(*)').eq('organization_id',job.organization_id).eq('id',job.conversation_id).single(),db.from('onboarding_profiles').select('agent_enabled,approved_at,revision,approved_revision').eq('organization_id',job.organization_id).single(),db.from('messages').select('occurred_at').eq('organization_id',job.organization_id).eq('id',job.message_id).single()]);
+   if(conversation.error||profile.error||inbound.error)throw new Error('Context unavailable');
    const c=conversation.data,p=profile.data;
-   if(c.ai_paused||!c.contacts.opted_in||c.contacts.opted_out||!p.agent_enabled||!p.approved_at||p.revision!==p.approved_revision){status='cancelled';}
+   if(Date.parse(c.last_inbound_at)>Date.parse(inbound.data.occurred_at)||c.ai_paused||!c.contacts.opted_in||c.contacts.opted_out||!p.agent_enabled||!p.approved_at||p.revision!==p.approved_revision){status='cancelled';}
    else if(c.channel_kind==='instagram'){
     const result=await sendInstagramReply({organizationId:job.organization_id,channelId:c.channel_id,recipientId:c.contacts.external_id,text:job.text,idempotencyKey:`automation:${job.id}`});
     providerId=result.providerMessageId;status='sent';
