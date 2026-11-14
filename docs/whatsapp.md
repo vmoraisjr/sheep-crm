@@ -26,3 +26,5 @@ Subscribe `/api/webhooks/whatsapp`; the route checks raw bytes before parsing. U
 6. Revoke token, verify sanitized provider errors and reconnect provisioning; never log bearer tokens or raw payloads.
 
 Official references: https://developers.facebook.com/docs/whatsapp/cloud-api/ ; https://developers.facebook.com/docs/graph-api/webhooks/getting-started ; https://developers.facebook.com/docs/whatsapp/cloud-api/guides/send-messages
+
+`getWhatsAppAdapter(serviceRoleClient, organizationId, channelId)` resolves/decrypts configured tenant tokens server-side and requires `META_GRAPH_VERSION`. Real sending must persist the provider ID as an outbound domain message. Poll worker failures operationally; eight failed attempts need inspection/replay. Retain raw queue payloads only for the documented retention period and remove completed jobs after reconciliation.

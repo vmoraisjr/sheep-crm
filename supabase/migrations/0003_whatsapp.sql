@@ -67,3 +67,6 @@ begin
 end; $$;
 revoke all on function public.update_whatsapp_message_status(uuid,uuid,text,text) from public, anon, authenticated;
 grant execute on function public.update_whatsapp_message_status(uuid,uuid,text,text) to service_role;
+-- Explicit grants also support clean PostgreSQL harnesses without Supabase default ACLs.
+grant select,insert,update,delete on public.whatsapp_connections, public.whatsapp_webhook_jobs to service_role;
+grant usage,select on sequence public.whatsapp_webhook_jobs_id_seq to service_role;
