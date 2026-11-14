@@ -1,4 +1,7 @@
 -- Users can schedule but cannot forge sent/retry/lease states.
+drop policy tenant_access on public.followups;
+create policy tenant_read on public.followups for select to authenticated using(public.is_org_member(organization_id));
+create policy admin_schedule on public.followups for insert to authenticated with check(exists(select 1 from public.memberships where organization_id=followups.organization_id and user_id=auth.uid() and role in ('owner','admin')));
 revoke insert,update,delete on public.followups from authenticated;
 alter table public.followups drop constraint followups_status_check;
 alter table public.followups add constraint followups_status_check check(status in ('pending','claimed','sending','sent','cancelled','failed','uncertain'));
