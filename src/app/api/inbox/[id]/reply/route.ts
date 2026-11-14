@@ -35,11 +35,15 @@ export async function POST(request: Request, { params }: { params:Promise<{id:st
   if(messageError) return NextResponse.json({error:'Não foi possível registrar a tentativa.'},{status:409});
   const {error:claimError}=await db.from('manual_reply_requests').insert({organization_id:organizationId,idempotency_key:requestKey,conversation_id:id,message_id:messageId,status:'processing'});
   if(claimError) { await db.from('messages').delete().eq('organization_id',organizationId).eq('id',messageId); return NextResponse.json({error:'Tentativa já em processamento.'},{status:409}); }
-  await db.from('conversations').update({ai_paused:true}).eq('organization_id',organizationId).eq('id',id);
+  const {error:pauseError}=await db.from('conversations').update({ai_paused:true}).eq('organization_id',organizationId).eq('id',id);
+  if(pauseError) return NextResponse.json({status:'processing',error:'Não foi possível pausar a automação. Envio interrompido; reconcilie a tentativa.'},{status:503});
   try {
     let providerMessageId:string;
     if(channel.kind==='whatsapp') {
-      const policy={consent:contact.opted_in,optedOut:contact.opted_out,lastInboundAt:conversation.last_inbound_at,estimatedCost:0,remainingBudget:0};
+      const estimatedCost=origin==='simulated'?0:Number(process.env.WHATSAPP_MANUAL_ESTIMATED_COST_MICROS);
+      const remainingBudget=origin==='simulated'?0:Number(process.env.WHATSAPP_MANUAL_REMAINING_BUDGET_MICROS);
+      if(!Number.isFinite(estimatedCost)||estimatedCost<0||!Number.isFinite(remainingBudget)||remainingBudget<estimatedCost) throw new Error('budget_configuration_required');
+      const policy={consent:contact.opted_in,optedOut:contact.opted_out,lastInboundAt:conversation.last_inbound_at,estimatedCost,remainingBudget};
       if(origin==='simulated') providerMessageId=(await new SimulatedWhatsAppAdapter().send(contact.external_id,{type:'text',text:parsed.data.text},policy)).providerMessageId;
       else {
         const {data:connection}=await db.from('whatsapp_connections').select('*').eq('organization_id',organizationId).eq('channel_id',channel.id).single();
