@@ -6,8 +6,14 @@ export function verifyMetaSignature(rawBody: string, signature: string | null, a
   return timingSafeEqual(expected, Buffer.from(signature.slice(7), 'hex'));
 }
 
-function key(value: string): Buffer {
+function decode(value: string): Buffer {
   const decoded = Buffer.from(value, 'base64');
+  if (decoded.toString('base64') !== value) throw new Error('Invalid credential encoding');
+  return decoded;
+}
+
+function key(value: string): Buffer {
+  const decoded = decode(value);
   if (decoded.length !== 32) throw new Error('Credential key must contain 32 base64-encoded bytes');
   return decoded;
 }
@@ -25,8 +31,8 @@ export function encryptCredential(plaintext: string, keyBase64: string, organiza
 export function decryptCredential(encrypted: string, keyBase64: string, organizationId: string): string {
   const [version, iv, tag, ciphertext, extra] = encrypted.split('.');
   if (version !== 'v1' || !iv || !tag || !ciphertext || extra) throw new Error('Invalid encrypted credential');
-  const decipher = createDecipheriv('aes-256-gcm', key(keyBase64), Buffer.from(iv, 'base64'));
+  const decipher = createDecipheriv('aes-256-gcm', key(keyBase64), decode(iv));
   decipher.setAAD(Buffer.from(organizationId));
-  decipher.setAuthTag(Buffer.from(tag, 'base64'));
-  return Buffer.concat([decipher.update(Buffer.from(ciphertext, 'base64')), decipher.final()]).toString('utf8');
+  decipher.setAuthTag(decode(tag));
+  return Buffer.concat([decipher.update(decode(ciphertext)), decipher.final()]).toString('utf8');
 }
