@@ -16,3 +16,15 @@ Sheep é uma ovelha com elmo de cavaleiro medieval: mascote simpática, confiáv
 
 ## Princípios
 Multi-tenant com isolamento por RLS; APIs oficiais Meta; mensagens e consentimentos auditáveis; transferências para humanos; sem inventar condições comerciais; dados de teste até aprovação das integrações.
+
+## Desenvolvimento
+
+Requer Node.js 24 e npm. Execute `npm ci`, copie `.env.example` para `.env.local`, configure um projeto Supabase e execute todas as migrations em `supabase/migrations` na ordem. O app usa exclusivamente a chave pública e o JWT do usuário: nenhuma chave service-role é necessária para servir requisições. `npm run dev` abre a UI. Sem configuração, a página informa explicitamente que não há conexão.
+
+Autenticação: `/login` permite cadastro e senha (12+ caracteres); ative confirmação de e-mail, proteção contra abuso e URLs de redirecionamento no Supabase. Cadastros confirmados criam empresa em `/organizations/new` via RPC atômica. Cookies são renovados no proxy; `getUser()` valida o usuário no servidor. O tenant selecionado é sempre validado pelas memberships. `requireTenant()` fornece `supabase`, `user`, `organizationId`, `role` a módulos protegidos. Nunca aceite organization_id do navegador como autorização. RLS é obrigatória em toda tabela de negócio; funções privileged usam search_path vazio e grants explícitos.
+
+## Verificação da fundação
+
+`npm run lint`, `npm run typecheck`, `npm test` e `npm run build`. O job `database` da CI executa as migrations em PostgreSQL descartável e `tests/rls.sql`: cria A e B, prova que B só vê sua empresa/membership e tenta escalada de role. `tests/postgres-bootstrap.sql` simula exclusivamente as funções de identidade de Supabase Auth para testar SQL real; não valida entrega de e-mail nem conexão real ao Supabase. Para repetir em Supabase local, aplique migrations e rode somente `tests/rls.sql` com psql como postgres. A transação de teste é revertida.
+
+Bloqueios: nenhum projeto/credencial Supabase foi fornecido; login e confirmação de e-mail externos precisam ser homologados. Nenhuma integração Meta foi ativada nem declarada como real. O schema/fixtures são verificáveis sem credenciais; pilotos reais dependem de serviços provisionados.
