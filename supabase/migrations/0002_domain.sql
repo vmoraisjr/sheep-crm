@@ -136,3 +136,27 @@ create policy channels_insert on public.channels for insert to authenticated wit
 create policy channels_update on public.channels for update to authenticated using(public.is_org_member(organization_id)) with check(public.is_org_member(organization_id) and status in ('disconnected','pending_permissions','simulated'));
 create policy channels_delete on public.channels for delete to authenticated using(public.is_org_member(organization_id));
 grant all on public.channels,public.contacts,public.leads,public.conversations,public.messages,public.opportunities,public.followups,public.handoffs,public.automation_rules,public.knowledge_sources,public.usage_events to service_role;
+
+-- Protect the table itself: PostgREST direct writes must not bypass the ingest guard.
+-- Keep SECURITY INVOKER so the caller role is preserved. Only workers attest Meta origin.
+create function public.enforce_provider_message_integrity() returns trigger
+language plpgsql security invoker set search_path='' as $$
+begin
+ if current_user not in ('service_role','postgres') then
+  if TG_OP <> 'INSERT' then
+   if OLD.origin = 'meta' then
+    raise exception 'Provider messages are managed by trusted workers' using errcode='42501';
+   end if;
+  end if;
+  if TG_OP <> 'DELETE' then
+   if NEW.origin = 'meta' then
+    raise exception 'Provider origin requires trusted worker' using errcode='42501';
+   end if;
+  end if;
+ end if;
+ if TG_OP = 'DELETE' then return OLD; end if;
+ return NEW;
+end $$;
+revoke all on function public.enforce_provider_message_integrity() from public,anon,authenticated;
+create trigger messages_provider_integrity before insert or update or delete on public.messages
+for each row execute function public.enforce_provider_message_integrity();

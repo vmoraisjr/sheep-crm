@@ -17,7 +17,15 @@ do $$ declare e jsonb; first_result jsonb; retry_result jsonb; conv uuid; ct uui
  if (first_result->>'duplicate')::boolean or not (retry_result->>'duplicate')::boolean then raise exception 'Wrong retry receipt'; end if;
  if (select count(*) from public.messages) <> 1 or (select count(*) from public.contacts) <> 1 or (select count(*) from public.leads) <> 1 then raise exception 'Duplicate ingestion'; end if;
  conv := (first_result->'conversation'->>'id')::uuid; ct := (first_result->'contact'->>'id')::uuid;
- insert into public.opportunities(organization_id,contact_id) values('00000000-0000-0000-0000-000000000021',ct) returning id into opp;
+ begin
+  insert into public.messages(organization_id,conversation_id,channel_id,provider_message_id,direction,text,occurred_at,origin,status) values('00000000-0000-0000-0000-000000000021',conv,'00000000-0000-0000-0000-000000000031','forged-direct','inbound','Forged',now(),'meta','received');
+  raise exception 'Direct forged provider origin allowed';
+ exception when insufficient_privilege then null; end;
+ begin
+  update public.messages set origin='meta' where organization_id='00000000-0000-0000-0000-000000000021';
+  raise exception 'Simulated to provider origin escalation allowed';
+ exception when insufficient_privilege then null; end;
+ insert into public.opportunities(organization_id,contact_id) values('00000000-0000-0000-0000-000000000021',ct) on conflict(organization_id,contact_id) do update set contact_id=excluded.contact_id returning id into opp;
  insert into public.followups(organization_id,conversation_id,opportunity_id,due_at,idempotency_key) values('00000000-0000-0000-0000-000000000021',conv,opp,now(),'reminder-1');
  perform public.ingest_inbound(e || '{"providerMessageId":"wa-2"}');
  if exists(select 1 from public.followups where status <> 'cancelled') then raise exception 'Followup not cancelled'; end if;
@@ -38,6 +46,27 @@ do $$ declare e jsonb; first_result jsonb; retry_result jsonb; conv uuid; ct uui
   raise exception 'Forged connection allowed';
  exception when insufficient_privilege then null; end;
  if (select count(*) from public.channels) <> 1 then raise exception 'Channel tenant leak'; end if;
+end $$;
+-- Seed a genuine provider message as the trusted database owner, then test client mutation.
+reset role;
+insert into public.messages(organization_id,conversation_id,channel_id,provider_message_id,direction,text,occurred_at,origin,status)
+select organization_id,id,channel_id,'trusted-meta','inbound','Provider content',now(),'meta','received'
+from public.conversations where organization_id='00000000-0000-0000-0000-000000000021';
+set local role authenticated;
+do $$ begin
+ begin
+  update public.messages set text='Tampered',status='read' where provider_message_id='trusted-meta';
+  raise exception 'Provider content/status mutation allowed';
+ exception when insufficient_privilege then null; end;
+ begin
+  update public.messages set origin='simulated' where provider_message_id='trusted-meta';
+  raise exception 'Provider origin downgrade allowed';
+ exception when insufficient_privilege then null; end;
+ begin
+  delete from public.messages where provider_message_id='trusted-meta';
+  raise exception 'Provider deletion allowed';
+ exception when insufficient_privilege then null; end;
+ if not exists(select 1 from public.messages where provider_message_id='trusted-meta' and text='Provider content' and status='received' and origin='meta') then raise exception 'Provider message changed'; end if;
 end $$;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000012',true);
 do $$ begin
