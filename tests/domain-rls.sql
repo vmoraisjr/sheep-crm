@@ -13,7 +13,7 @@ do $$ declare e jsonb; first_result jsonb; retry_result jsonb; conv uuid; ct uui
  if (first_result->>'duplicate')::boolean or not (retry_result->>'duplicate')::boolean then raise exception 'Wrong retry receipt'; end if;
  if (select count(*) from public.messages) <> 1 or (select count(*) from public.contacts) <> 1 or (select count(*) from public.leads) <> 1 then raise exception 'Duplicate ingestion'; end if;
  conv := (first_result->'conversation'->>'id')::uuid; ct := (first_result->'contact'->>'id')::uuid;
- insert into public.opportunities(organization_id,contact_id) values('00000000-0000-0000-0000-000000000021',ct) returning id into opp;
+ insert into public.opportunities(organization_id,contact_id) values('00000000-0000-0000-0000-000000000021',ct) on conflict(organization_id,contact_id) do update set contact_id=excluded.contact_id returning id into opp;
  insert into public.followups(organization_id,conversation_id,opportunity_id,due_at,idempotency_key) values('00000000-0000-0000-0000-000000000021',conv,opp,now(),'reminder-1');
  perform public.ingest_inbound(e || '{"providerMessageId":"wa-2"}');
  if exists(select 1 from public.followups where status <> 'cancelled') then raise exception 'Followup not cancelled'; end if;
