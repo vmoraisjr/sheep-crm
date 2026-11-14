@@ -25,6 +25,7 @@ try {
   await page.getByText('3 contatos únicos · 1 oportunidades ganhas').waitFor();
   await page.getByText('33%',{exact:true}).waitFor();
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),`Dashboard overflow at ${width}`);
+  await page.getByRole('link',{name:/Conversas/}).click();await page.getByRole('button',{name:/Marina Oliveira/}).click();await page.getByText('Ganho',{exact:true}).waitFor();
   assert.deepEqual(errors,[]);
   console.log(`PASS demo E2E ${width}px: channel filters, search/empty, manual reply, human pause, unanswered, CRM win, dashboard 33%, no page errors/overflow`);
   await context.close();
