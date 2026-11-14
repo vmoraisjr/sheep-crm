@@ -1,10 +1,11 @@
 'use client';
 import {useEffect,useState} from 'react';
+import Link from 'next/link';
 import {emptyDraft,validateDraft,type CompanyDraft,type OnboardingRecord} from '@/lib/onboarding/model';
 const labels:Record<keyof CompanyDraft,string>={companyName:'Nome da empresa',website:'Site (referência, sem coleta automática)',documents:'Documentos fornecidos (texto)',products:'Produtos e serviços',hours:'Horários de atendimento',faq:'Perguntas e respostas aprováveis',rules:'Regras de atendimento e transferência'};
 export function OnboardingWizard(){
  const [demo,setDemo]=useState(false),[draft,setDraft]=useState({...emptyDraft}),[step,setStep]=useState(0),[revision,setRevision]=useState(0),[approved,setApproved]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[loaded,setLoaded]=useState(false),[dirty,setDirty]=useState(true);
- useEffect(()=>{const simulated=new URLSearchParams(location.search).get('mode')==='demo';setDemo(simulated);if(simulated){setLoaded(true);return;}fetch('/api/onboarding').then(async r=>{if(!r.ok||!r.headers.get('content-type')?.includes('application/json'))throw new Error('Entre na sua conta para salvar. Para explorar, use a demonstração.');const {profile}=await r.json() as {profile:OnboardingRecord|null};if(profile){setDraft(profile.draft);setDirty(false);setRevision(profile.revision);setApproved(profile.agent_enabled&&profile.approved_revision===profile.revision);}}).catch(e=>setMessage(e.message)).finally(()=>setLoaded(true));},[]);
+ useEffect(()=>{Promise.resolve().then(()=>{const simulated=new URLSearchParams(location.search).get('mode')==='demo';setDemo(simulated);if(simulated){setLoaded(true);return;}fetch('/api/onboarding').then(async r=>{if(!r.ok||!r.headers.get('content-type')?.includes('application/json'))throw new Error('Entre na sua conta para salvar. Para explorar, use a demonstração.');const {profile}=await r.json() as {profile:OnboardingRecord|null};if(profile){setDraft(profile.draft);setDirty(false);setRevision(profile.revision);setApproved(profile.agent_enabled&&profile.approved_revision===profile.revision);}}).catch(e=>setMessage(e.message)).finally(()=>setLoaded(true));});},[]);
  async function persist(action:'save'|'approve'){
   setBusy(true);setMessage('');
   try{
@@ -16,7 +17,7 @@ export function OnboardingWizard(){
   }catch(e){setMessage(e instanceof Error?e.message:'Falha ao salvar');}finally{setBusy(false);}
  }
  const groups:(keyof CompanyDraft)[][]=[['companyName','website','documents'],['products','hours','faq','rules']];
- return <main className="mx-auto max-w-4xl p-6 text-slate-900"><a href="/" className="text-indigo-700">← Sheep CRM</a><header className="my-8"><p className="text-sm font-semibold text-indigo-700">CONFIGURAÇÃO DA EMPRESA</p><h1 className="text-3xl font-bold">Seu atendimento, com contexto aprovado</h1><p className="mt-3 text-slate-600">Forneça os fatos que o agente poderá usar. Informações ausentes serão encaminhadas para uma pessoa.</p><a className="mt-3 inline-block underline" href="/onboarding?mode=demo">Explorar onboarding simulado</a></header>
+ return <main className="mx-auto max-w-4xl p-6 text-slate-900"><Link href="/" className="text-indigo-700">← Sheep CRM</Link><header className="my-8"><p className="text-sm font-semibold text-indigo-700">CONFIGURAÇÃO DA EMPRESA</p><h1 className="text-3xl font-bold">Seu atendimento, com contexto aprovado</h1><p className="mt-3 text-slate-600">Forneça os fatos que o agente poderá usar. Informações ausentes serão encaminhadas para uma pessoa.</p><a className="mt-3 inline-block underline" href="/onboarding?mode=demo">Explorar onboarding simulado</a></header>
  {demo&&<p role="status" className="mb-6 rounded-xl bg-amber-100 p-4">Demonstração simulada • dados somente nesta sessão • nenhuma integração real</p>}
  <nav aria-label="Etapas" className="mb-6 flex flex-wrap gap-3">{['Empresa e fontes','Conhecimento e regras','Revisão e aprovação','Conexões e teste'].map((label,i)=><button key={label} onClick={()=>setStep(i)} aria-current={step===i?'step':undefined} className={`rounded-lg border px-4 py-3 ${step===i?'bg-indigo-600 text-white':'bg-white'}`}>{i+1}. {label}</button>)}</nav>
  {!loaded?<p role="status">Carregando…</p>:<section className="rounded-2xl border bg-white p-6 shadow-sm">
