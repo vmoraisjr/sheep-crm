@@ -49,3 +49,39 @@ describe('Instagram official boundaries (provider calls are simulated)', () => {
   expect(() => new InstagramClient({...config,graphVersion:'latest'})).toThrow();
  });
 });
+
+import { OfficialInstagramAdapter } from '../src/lib/channels/instagram/adapter';
+describe('Instagram outbound delivery idempotency', () => {
+ const message = { organizationId:'a',channelId:'ig',recipientId:'customer',text:'Oi',idempotencyKey:'key' };
+ const connection = { organizationId:'a',channelId:'ig',accountId:'account',token:'token' };
+ const policy = async () => ({ lastInboundAt:new Date().toISOString(),optedOut:false });
+ it('returns prior sent receipt and never re-sends an ambiguous delivery', async () => {
+  const request = vi.fn(); const complete = vi.fn();
+  const store = { policy,complete,reserve:vi.fn().mockResolvedValueOnce({state:'sent',providerMessageId:'m1'}).mockResolvedValueOnce({state:'pending'}) };
+  const adapter = new OfficialInstagramAdapter(new InstagramClient(config,request),connection,store);
+  expect(await adapter.send(message)).toMatchObject({providerMessageId:'m1'});
+  await expect(adapter.send(message)).rejects.toThrow('reconciliation');
+  expect(request).not.toHaveBeenCalled(); expect(complete).not.toHaveBeenCalled();
+ });
+ it('reserves before provider and completes after acceptance', async () => {
+  const order:string[]=[];
+  const request = vi.fn(async () => {order.push('provider');return Response.json({message_id:'m2'});});
+  const adapter = new OfficialInstagramAdapter(new InstagramClient(config,request),connection,{policy,reserve:async()=>{order.push('reserve');return {state:'new'};},complete:async()=>{order.push('complete');}});
+  await adapter.send(message); expect(order).toEqual(['reserve','provider','complete']);
+ });
+ it('rejects another tenant and unsupported proactive templates before provider', async () => {
+  const request = vi.fn(), reserve = vi.fn();
+  const adapter = new OfficialInstagramAdapter(new InstagramClient(config,request),connection,{policy,reserve,complete:vi.fn()});
+  await expect(adapter.send({...message,organizationId:'b'})).rejects.toThrow('Tenant');
+  await expect(adapter.send({...message,template:{name:'wa-only',language:'pt_BR'}})).rejects.toThrow('plain text');
+  expect(reserve).not.toHaveBeenCalled();expect(request).not.toHaveBeenCalled();
+ });
+ it('keeps ambiguous network failures reserved, never auto retries', async () => {
+  const reserve=vi.fn().mockResolvedValueOnce({state:'new'}).mockResolvedValueOnce({state:'pending'});
+  const request=vi.fn().mockRejectedValue(new Error('timeout'));
+  const adapter=new OfficialInstagramAdapter(new InstagramClient(config,request),connection,{policy,reserve,complete:vi.fn()});
+  await expect(adapter.send(message)).rejects.toThrow('timeout');
+  await expect(adapter.send(message)).rejects.toThrow('reconciliation');
+  expect(request).toHaveBeenCalledTimes(1);
+ });
+});
