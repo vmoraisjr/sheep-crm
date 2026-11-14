@@ -1,0 +1,3 @@
+-- Run only on a local disposable Supabase instance after migrations.
+-- Create real local Auth accounts through scripts/setup-pilots.ts when available.
+-- No fixed passwords, auth identities, or production-looking data are inserted here.
