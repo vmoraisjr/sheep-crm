@@ -17,3 +17,11 @@ describe('unified inbox simulation', () => {
     expect(() => manualReply(demoConversations[0], 'x'.repeat(4097), 'id', '')).toThrow();
   });
 });
+import { assertManualReply } from '../src/lib/inbox/reply';
+it('manual replies obey channel connection, opt-out and 24h windows for both providers', () => {
+ const policy={status:'connected',kind:'whatsapp' as const,optedIn:true,optedOut:false,lastInboundAt:new Date(100000000).toISOString()};
+ expect(()=>assertManualReply(policy,'Hello',100000001)).not.toThrow();
+ expect(()=>assertManualReply({...policy,status:'disconnected'},'Hello',100000001)).toThrow();
+ expect(()=>assertManualReply({...policy,optedOut:true},'Hello',100000001)).toThrow();
+ expect(()=>assertManualReply({...policy,kind:'instagram'},'Hello',100000000+86400000)).toThrow();
+});

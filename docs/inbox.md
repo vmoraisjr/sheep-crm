@@ -7,3 +7,5 @@
 A interface inclui carregamento, vazio, erro anunciado por leitor de tela, labels, foco visível e layout em coluna para telas pequenas. O Figma não é necessário.
 
 Testes: `npm test -- tests/inbox.test.ts`; execução integrada de navegador será registrada no PR.
+
+Atualização: `PATCH /api/inbox/[id]` altera pausa, atribui ao usuário da sessão e registra contexto humano sob RLS. `POST /api/inbox/[id]/reply` exige origem same-origin, sessão/tenant, UUID estável de idempotência, canal conectado ou explicitamente simulado, opt-in WA/opt-out e janela de 24h. Persiste tentativa antes do envio e reserva chave única; resultados ambíguos ficam `unknown`, sem retry automático. A UI preserva a chave em novas tentativas para evitar duplicação. O adaptador oficial usa credencial criptografada do tenant no servidor; canal `simulated` nunca faz chamada Meta. Texto IG limitado a 1.000 caracteres, WA a 4.096. Templates fora da janela não são oferecidos pelo composer manual.
