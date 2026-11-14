@@ -37,3 +37,5 @@ end $$;
 revoke all on function public.save_onboarding(uuid,jsonb,integer) from public,anon;
 revoke all on function public.approve_onboarding(uuid,integer) from public,anon;
 grant execute on function public.save_onboarding(uuid,jsonb,integer),public.approve_onboarding(uuid,integer) to authenticated;
+grant select on public.onboarding_profiles to authenticated;
+grant all on public.onboarding_profiles to service_role;
