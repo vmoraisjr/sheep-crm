@@ -8,7 +8,7 @@ trap cleanup EXIT INT TERM
 docker run --rm -d --name "$test_container" -e POSTGRES_PASSWORD=local-test-only postgres:17-alpine >/dev/null
 ready=false
 for attempt in {1..30}; do
- if docker exec "$test_container" pg_isready -U postgres >/dev/null 2>&1; then ready=true; break; fi
+ if docker exec "$test_container" pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1; then ready=true; break; fi
  sleep 1
 done
 if [ "$ready" != true ]; then echo 'PostgreSQL did not become ready' >&2; exit 1; fi

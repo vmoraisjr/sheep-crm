@@ -50,3 +50,9 @@ Pausar workers e todos agentes/canais antes de reverter. Preservar filas e statu
 ## Evidências reproduzíveis
 
 `tests/postgres-bootstrap.sql` simula somente a camada Auth mínima para PostgreSQL descartável; não equivale ao serviço Supabase hospedado. Testes unitários exercitam políticas e transportes falsos. Testes SQL exercitam migrations e RLS reais no PostgreSQL. E2E de navegador cobre a demonstração. Autenticação hospedada e Meta real continuam dependências externas.
+
+## Agendamento e semântica da medição
+
+Agendar os endpoints internos dos workers com Bearer secrets fortes distintos conforme `.env.example` (por exemplo a cada minuto). O worker de automação busca mensagens reais de canais conectados ainda sem decisão, reclama cada mensagem atomicamente e então processa a outbox; simulações não são despachadas para provedores reais. O worker Instagram e WhatsApp deve drenar a ingestão antes da automação.
+
+`automated_conversation` é uma reserva de franquia ao enfileirar a primeira resposta da conversa naquele mês UTC. Não comprova entrega Meta. Reservas canceladas ou incertas são conservadas para evitar exceder o hard cap; não geram cobrança. `message` conta confirmações de envio registradas atomicamente. O relatório diferencia atendimentos reservados e mensagens confirmadas. A unidade só se repete no mês seguinte. Cap hard é verificado novamente dentro da transação com lock por tenant; cap soft registra excedente. Continuar conversa já medida não consome outra unidade. Tokens/custos são zero quando nenhum provedor IA real é usado.
