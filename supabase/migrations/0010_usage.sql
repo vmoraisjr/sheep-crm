@@ -22,3 +22,4 @@ begin
 end $$;
 revoke all on function public.usage_summary(uuid) from public,anon;
 grant execute on function public.usage_summary(uuid) to authenticated;
+grant all on public.tenant_plans to service_role;
