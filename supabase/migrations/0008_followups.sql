@@ -43,3 +43,4 @@ begin
 end $$;
 revoke all on function public.claim_followups(timestamptz,integer),public.prepare_followup(uuid,uuid,timestamptz) from public,anon,authenticated;
 grant execute on function public.claim_followups(timestamptz,integer),public.prepare_followup(uuid,uuid,timestamptz) to service_role;
+grant select,insert,update,delete on public.followup_audit,public.whatsapp_approved_templates to service_role;
