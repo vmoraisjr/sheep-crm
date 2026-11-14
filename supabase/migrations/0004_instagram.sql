@@ -66,6 +66,7 @@ begin
     if job.event->>'organizationId' <> job.organization_id::text or job.event->>'channelId' <> connection.channel_id::text then raise exception 'Queue routing mismatch'; end if;
     perform public.ingest_inbound(job.event);
    else
+    if not exists(select 1 from public.messages where organization_id=job.organization_id and channel_id=connection.channel_id and provider_message_id=job.event->>'providerMessageId' and direction='outbound') then raise exception 'Outbound not persisted yet'; end if;
     update public.messages set status='read' where organization_id=job.organization_id and channel_id=connection.channel_id and provider_message_id=job.event->>'providerMessageId' and direction='outbound' and status in ('sent','delivered');
    end if;
    update public.instagram_webhook_jobs set status='done', attempts=attempts+1 where id=job.id;
@@ -108,3 +109,5 @@ begin
 end $$;
 revoke all on function public.reserve_instagram_outbound(uuid,uuid,text,text),public.complete_instagram_outbound(uuid,uuid,text,text,text,text) from public,anon,authenticated;
 grant execute on function public.reserve_instagram_outbound(uuid,uuid,text,text),public.complete_instagram_outbound(uuid,uuid,text,text,text,text) to service_role;
+-- Admin validation in service-only provisioning must work without Supabase default ACLs.
+grant select on public.memberships to service_role;
