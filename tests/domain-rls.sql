@@ -8,6 +8,10 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000011',true);
 do $$ declare e jsonb; first_result jsonb; retry_result jsonb; conv uuid; ct uuid; opp uuid; begin
  e := jsonb_build_object('organizationId','00000000-0000-0000-0000-000000000021','channelId','00000000-0000-0000-0000-000000000031','channelKind','whatsapp','providerMessageId','wa-1','externalContactId','sender','text','Olá','occurredAt','2026-11-14T10:00:00Z','origin','simulated');
+ begin
+  perform public.ingest_inbound(e || '{"origin":"meta"}');
+  raise exception 'Forged provider origin allowed';
+ exception when insufficient_privilege then null; end;
  first_result := public.ingest_inbound(e);
  retry_result := public.ingest_inbound(e);
  if (first_result->>'duplicate')::boolean or not (retry_result->>'duplicate')::boolean then raise exception 'Wrong retry receipt'; end if;

@@ -94,6 +94,8 @@ declare
  kind text; duplicate boolean := false;
 begin
  if coalesce(p_event->>'providerMessageId','')='' or coalesce(p_event->>'externalContactId','')='' or coalesce(p_event->>'origin','') not in ('meta','simulated') or (coalesce(p_event->>'text','')='' and p_event->'media' is null) then raise exception 'Invalid inbound event'; end if;
+ -- Only the trusted webhook worker may attest to a real provider event.
+ if p_event->>'origin'='meta' and current_user not in ('service_role','postgres') then raise exception 'Provider events require trusted worker' using errcode='42501'; end if;
  select channels.kind into strict kind from public.channels where organization_id=org and id=chan;
  if kind is distinct from p_event->>'channelKind' then raise exception 'Channel kind mismatch'; end if;
  perform pg_advisory_xact_lock(hashtextextended(org::text || chan::text || (p_event->>'providerMessageId'),0));
