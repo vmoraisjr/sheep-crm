@@ -64,3 +64,15 @@ begin
 end $$;
 revoke all on function public.claim_automation(uuid,uuid),public.commit_automation(uuid,uuid,jsonb) from public,anon,authenticated;
 grant execute on function public.claim_automation(uuid,uuid),public.commit_automation(uuid,uuid,jsonb) to service_role;
+
+alter table public.automation_outbox drop constraint automation_outbox_status_check;
+alter table public.automation_outbox add constraint automation_outbox_status_check check(status in ('pending','sending','sent','cancelled','failed','uncertain'));
+alter table public.automation_outbox add column lease_until timestamptz, add column provider_message_id text;
+create function public.claim_automation_outbox() returns setof public.automation_outbox language plpgsql security invoker set search_path=public as $$
+begin
+ update public.automation_outbox set status='uncertain' where status='sending' and lease_until<now();
+ return query with jobs as(select id from public.automation_outbox where status='pending' order by created_at for update skip locked limit 25)
+ update public.automation_outbox o set status='sending',lease_until=now()+interval '2 minutes' from jobs where o.id=jobs.id returning o.*;
+end $$;
+revoke all on function public.claim_automation_outbox() from public,anon,authenticated;
+grant execute on function public.claim_automation_outbox() to service_role;
