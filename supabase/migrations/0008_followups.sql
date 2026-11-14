@@ -31,6 +31,7 @@ begin
  if opp.contact_id<>c.contact_id then reason='opportunity_mismatch';
  elsif ct.opted_out or not ct.opted_in then reason='consent_required';
  elsif c.ai_paused then reason='human_priority';
+ elsif f.payload ? 'template' and not exists(select 1 from public.whatsapp_approved_templates where organization_id=p_org and channel_id=c.channel_id and name=f.payload->'template'->>'name' and language=f.payload->'template'->>'language' and approved and verified_at>p_now-interval '1 day') then reason='template_not_approved';
  elsif opp.stage in ('won','lost') then reason='opportunity_closed';
  elsif c.last_inbound_at>f.created_at then reason='customer_replied';
  elsif c.last_inbound_at>p_now then reason='invalid_window';
