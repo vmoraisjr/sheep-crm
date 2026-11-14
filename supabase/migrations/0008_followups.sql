@@ -59,3 +59,18 @@ do $$ declare definition text; begin
  definition=replace(definition,'update public.followups set status=''cancelled'' where organization_id=org and conversation_id=conv.id and status in (''pending'',''claimed'');','perform public.cancel_conversation_followups(org,conv.id);');
  execute definition;
 end $$;
+create function public.complete_followup(p_org uuid,p_id uuid,p_token uuid,p_provider text,p_origin text,p_last_inbound timestamptz) returns void language plpgsql security invoker set search_path=public as $$
+declare f public.followups; c public.conversations;
+begin
+ if p_origin not in ('meta','simulated') then raise exception 'Invalid origin';end if;
+ select * into strict f from public.followups where organization_id=p_org and id=p_id and claim_token=p_token and status='sending' for update;
+ select * into strict c from public.conversations where organization_id=p_org and id=f.conversation_id;
+ insert into public.messages(organization_id,conversation_id,channel_id,provider_message_id,direction,text,occurred_at,origin,status)
+ values(p_org,c.id,c.channel_id,p_provider,'outbound',coalesce(f.payload->>'text',''),now(),p_origin,'sent') on conflict(organization_id,channel_id,provider_message_id) do nothing;
+ insert into public.usage_events(organization_id,event_key,kind,quantity) values(p_org,'followup-message:'||f.id,'message',1) on conflict do nothing;
+ update public.conversations set unanswered=false where organization_id=p_org and id=c.id and last_inbound_at<=p_last_inbound;
+ update public.followups set status='sent',provider_message_id=p_provider,last_error=null where id=f.id;
+ insert into public.followup_audit(organization_id,followup_id,action) values(p_org,p_id,'sent_'||p_origin);
+end $$;
+revoke all on function public.complete_followup(uuid,uuid,uuid,text,text,timestamptz) from public,anon,authenticated;
+grant execute on function public.complete_followup(uuid,uuid,uuid,text,text,timestamptz) to service_role;
