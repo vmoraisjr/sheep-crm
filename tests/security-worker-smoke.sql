@@ -1,0 +1,23 @@
+begin;
+insert into auth.users(id,email) values('00000000-0000-0000-0000-000000000071','review@example.invalid');
+insert into public.organizations(id,name) values('00000000-0000-0000-0000-000000000072','Security review');
+insert into public.memberships(organization_id,user_id,role) values('00000000-0000-0000-0000-000000000072','00000000-0000-0000-0000-000000000071','owner');
+insert into public.channels(id,organization_id,kind,external_id,status) values('00000000-0000-0000-0000-000000000073','00000000-0000-0000-0000-000000000072','whatsapp','review','simulated');
+set local role service_role;
+do $$ declare evt jsonb; receipt jsonb; org uuid:='00000000-0000-0000-0000-000000000072'; conv uuid; msg uuid; ct uuid; opp uuid; job public.followups; decision jsonb; begin
+ evt=jsonb_build_object('organizationId',org,'channelId','00000000-0000-0000-0000-000000000073','channelKind','whatsapp','providerMessageId','review-msg','externalContactId','5511999999999','text','Oi','occurredAt',now(),'origin','meta');
+ receipt=public.ingest_inbound(evt); conv=(receipt->'conversation'->>'id')::uuid; msg=(receipt->'message'->>'id')::uuid;ct=(receipt->'contact'->>'id')::uuid;
+ if not public.claim_automation(org,msg) then raise exception 'Automation initial claim failed';end if;
+ if public.claim_automation(org,msg) then raise exception 'Automation duplicate claim accepted';end if;
+ decision=public.commit_automation(org,msg,'{"action":"reply","text":"unsafe","reason":"faq"}');
+ if decision->>'action'<>'skip' then raise exception 'Unapproved automation allowed';end if;
+ update public.contacts set opted_in=true where id=ct;
+ update public.conversations set ai_paused=false where id=conv;
+ select id into strict opp from public.opportunities where organization_id=org and contact_id=ct;
+ insert into public.followups(organization_id,conversation_id,opportunity_id,due_at,idempotency_key,payload) values(org,conv,opp,now(),'review-followup','{"text":"Oi"}');
+ select * into strict job from public.claim_followups(now(),25);
+ if public.prepare_followup(org,job.id,gen_random_uuid(),now()) then raise exception 'Wrong fencing token accepted';end if;
+ if not public.prepare_followup(org,job.id,job.claim_token,now()) then raise exception 'Valid followup blocked';end if;
+ if public.prepare_followup(org,job.id,job.claim_token,now()) then raise exception 'Duplicate prepare accepted';end if;
+end $$;
+rollback;
