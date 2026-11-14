@@ -19,7 +19,8 @@ export class SupabaseAutomationRepository implements AutomationRepository {
    this.db.from('usage_events').select('kind,quantity').eq('organization_id',org),
    this.db.from('automation_decisions').select('decision').eq('organization_id',org).eq('status','committed').gte('claimed_at',new Date(Date.now()-3600000).toISOString())
   ]);
-  for(const result of [c,m,s,p,u,r]) if(result.error)throw result.error;
+  for(const result of [c,m,s,u,r]) if(result.error)throw result.error;
+  if(p.error && p.error.code!=='42P01' && p.error.code!=='PGRST205')throw p.error;
   const config:AutomationConfig={agentApproved:false,openHour:9,closeHour:18,timeZone:'America/Sao_Paulo',maxRepliesPerHour:10,tokenLimit:10000,usageLimit:100,limitMode:'hard',...s.data?.config};
   config.agentApproved=Boolean(p.data?.agent_enabled && p.data?.approved_at && p.data?.approved_revision===p.data?.revision);
   // Wizard FAQ is supplied text; only explicit Q: / A: pairs become approved answers.

@@ -42,7 +42,9 @@ begin
  select * into strict c from public.conversations where organization_id=p_org and id=msg.conversation_id for update;
  select * into strict ct from public.contacts where organization_id=p_org and id=c.contact_id for update;
  select config into cfg from public.automation_settings where organization_id=p_org for update;
- select coalesce(agent_enabled and approved_at is not null and approved_revision=revision,false) into profile_approved from public.onboarding_profiles where organization_id=p_org for update;
+ if to_regclass('public.onboarding_profiles') is not null then
+ execute 'select coalesce(agent_enabled and approved_at is not null and approved_revision=revision,false) from public.onboarding_profiles where organization_id=$1 for update' into profile_approved using p_org;
+ end if;
  if not exists(select 1 from public.automation_decisions where organization_id=p_org and message_id=p_message and status='claimed') then raise exception 'Automation not claimed'; end if;
  if d->>'reason'='opt_out' then update public.contacts set opted_out=true where organization_id=p_org and id=ct.id; end if;
  select count(*) into used from public.usage_events where organization_id=p_org and kind='automated_conversation';
