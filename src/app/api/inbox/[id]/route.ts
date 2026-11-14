@@ -7,6 +7,10 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
  const {supabase,organizationId,user}=await requireTenant();
  const {id}=await params; const parsed=input.safeParse(await request.json().catch(()=>null));
  if(!z.uuid().safeParse(id).success || !parsed.success) return NextResponse.json({error:'Dados inválidos.'},{status:400});
+ if(parsed.data.aiPaused===false){
+  const {data:profile,error:profileError}=await supabase.from('onboarding_profiles').select('agent_enabled,revision,approved_revision,approved_at').eq('organization_id',organizationId).maybeSingle();
+  if(profileError||!profile?.agent_enabled||!profile.approved_at||profile.revision!==profile.approved_revision)return NextResponse.json({error:'Aprove a revisão do conhecimento antes de ativar o agente.'},{status:409});
+ }
  const patch:Record<string,unknown>={};
  if(parsed.data.aiPaused!==undefined) patch.ai_paused=parsed.data.aiPaused;
  if(parsed.data.assignToMe!==undefined) {patch.assigned_to=parsed.data.assignToMe?user.id:null;patch.ai_paused=true;}
