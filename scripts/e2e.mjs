@@ -11,7 +11,7 @@ try{
   await setTimeout(500);
  }
  if(!ready)throw new Error('App readiness timeout');
- for(const script of ['e2e/demo.mjs','e2e/onboarding.mjs']){
+ for(const script of ['e2e/demo.mjs','e2e/onboarding.mjs','e2e/a2.mjs']){
   const child=spawn(process.execPath,[script],{stdio:'inherit',env});
   const code=await new Promise((resolve,reject)=>{child.on('error',reject);child.on('exit',resolve);});
   if(code!==0)throw new Error(`${script} failed with ${code}`);

@@ -1,6 +1,6 @@
-export const stages=['new','qualified','negotiation','won','lost'] as const;
+export const stages=['new','qualified','proposal','negotiation','won','lost'] as const;
 export type Stage=typeof stages[number];
-export const stageLabels:Record<Stage,string>={new:'Novo',qualified:'Qualificado',negotiation:'Negociação',won:'Ganho',lost:'Perdido'};
+export const stageLabels:Record<Stage,string>={new:'Novos leads',qualified:'Qualificação',proposal:'Proposta enviada',negotiation:'Negociação',won:'Ganho',lost:'Perdido'};
 export type CRMContact={id:string;name:string;eligible:boolean;tags:string[]};
 export type CRMOpportunity={id:string;contactId:string;name:string;stage:Stage;assignee:string;nextAction:string;valueCents:number|null;tags:string[]};
 export function syncOpportunities(contacts:CRMContact[],opportunities:CRMOpportunity[]):CRMOpportunity[]{

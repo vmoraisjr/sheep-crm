@@ -1,4 +1,4 @@
-# Sheep CRM 🐑⚔️
+# A2 CRM — Atendimento × Automação
 
 SaaS multissetorial para atendimento comercial unificado por **WhatsApp + Instagram**, CRM enxuto, automação híbrida com IA e follow-up com regras de conformidade.
 
@@ -9,10 +9,10 @@ Prazo-alvo: 14 dias. Piloto com 3 empresas; liberações/permissões da Meta sã
 Veja as [issues](https://github.com/vmoraisjr/sheep-crm/issues): SHP-01 a SHP-11. Ordem recomendada: 01 → 02 → (03 + 04 em paralelo) → (05 + 06) → 07 → 08 → 09 → 10. A entrega atual cobre apenas SHP-01 a SHP-10; SHP-11 não foi executada.
 
 ## Interface
-UI provisória responsiva implementada diretamente no código, sem depender do Figma.
+Frontend A2 CRM implementado a partir dos frames oficiais do Figma, preservando o backend existente. Consulte [telas, execução, contratos e limitações](docs/a2-frontend.md).
 
 ## Identidade
-Sheep é uma ovelha com elmo de cavaleiro medieval: mascote simpática, confiável e protetora; UI minimalista com índigo #4F5ED7.
+A2 CRM: logotipo oficial da página identidade visual do Figma, Inter, azul #4B6BFB e fundo #F7F9FC. Os nomes internos Sheep e chaves de demonstração anteriores são mantidos onde necessário para compatibilidade.
 
 ## Princípios
 Multi-tenant com isolamento por RLS; APIs oficiais Meta; mensagens e consentimentos auditáveis; transferências para humanos; sem inventar condições comerciais; dados de teste até aprovação das integrações.
@@ -21,7 +21,7 @@ Multi-tenant com isolamento por RLS; APIs oficiais Meta; mensagens e consentimen
 
 Requer Node.js 24 e npm. Execute `npm ci`, copie `.env.example` para `.env.local`, configure um projeto Supabase e execute todas as migrations em `supabase/migrations` na ordem. As páginas e leituras usam chave pública e JWT do usuário. Workers e envio oficial usam service-role exclusivamente no servidor, após autorização do tenant; nunca exponha essa chave no navegador. `npm run dev` abre a UI. Sem configuração, a página informa explicitamente que não há conexão.
 
-Autenticação: `/login` permite cadastro e senha (12+ caracteres); ative confirmação de e-mail, proteção contra abuso e URLs de redirecionamento no Supabase. Cadastros confirmados criam empresa em `/organizations/new` via RPC atômica. Cookies são renovados no proxy; `getUser()` valida o usuário no servidor. O tenant selecionado é sempre validado pelas memberships. `requireTenant()` fornece `supabase`, `user`, `organizationId`, `role` a módulos protegidos. Nunca aceite organization_id do navegador como autorização. RLS é obrigatória em toda tabela de negócio; funções privilegiadas usam search_path fixo e grants explícitos.
+Autenticação: `/login` permite entrada por senha; `/primeiro-acesso` define senha (12+ caracteres) com sessão de convite ou recuperação válida; ative confirmação de e-mail, proteção contra abuso e URLs de redirecionamento no Supabase. Cadastros confirmados criam empresa em `/organizations/new` via RPC atômica. Cookies são renovados no proxy; `getUser()` valida o usuário no servidor. O tenant selecionado é sempre validado pelas memberships. `requireTenant()` fornece `supabase`, `user`, `organizationId`, `role` a módulos protegidos. Nunca aceite organization_id do navegador como autorização. RLS é obrigatória em toda tabela de negócio; funções privilegiadas usam search_path fixo e grants explícitos.
 
 ## Verificação da fundação
 

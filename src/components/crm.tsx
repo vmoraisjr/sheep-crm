@@ -1,17 +1,371 @@
-'use client';
-import { useEffect,useState } from 'react';
-import { demoConversations, type InboxConversation } from '@/lib/demo/inbox';
-import { stageLabels,stages,summarizeCRM,syncOpportunities,type CRMOpportunity,type Stage } from '@/lib/crm/model';
-import './workspace.css';
-function demoData(){
- let conversations:InboxConversation[]=demoConversations;let opportunities:CRMOpportunity[]=[];
- try{const saved=localStorage.getItem('sheep:inbox:demo:v1');if(saved)conversations=JSON.parse(saved);const crm=localStorage.getItem('sheep:crm:demo:v1');if(crm)opportunities=JSON.parse(crm);}catch{/* demo reset */}
- return {conversations,opportunities:syncOpportunities(conversations.map(item=>({id:item.contactId,name:item.name,eligible:true,tags:[]})),opportunities)};
-}
-export function CRM({dashboard=false,simulated=false}:{dashboard?:boolean;simulated?:boolean}){
- const [opportunities,setOpportunities]=useState<CRMOpportunity[]>([]);const [pending,setPending]=useState(0);const [followups,setFollowups]=useState(0);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [notice,setNotice]=useState('');
- useEffect(()=>{let active=true;async function load(){try{if(simulated){const data=demoData();if(active){setOpportunities(data.opportunities);setPending(data.conversations.filter(item=>item.unread).length);}}else{const response=await fetch('/api/crm');if(!response.ok)throw new Error('Não foi possível carregar o CRM.');const data=await response.json();if(active){setOpportunities(data.opportunities);setPending(data.pending);setFollowups(data.followups);}}}catch{if(active)setError('Não foi possível carregar o CRM. Atualize a página para tentar novamente.');}finally{if(active)setLoading(false);}}void load();return()=>{active=false;};},[simulated]);
- async function update(id:string,patch:Partial<CRMOpportunity>){setError('');const next=opportunities.map(item=>item.id===id?{...item,...patch}:item);if(!simulated){try{const result=await fetch('/api/crm',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,...patch})});if(!result.ok)throw new Error();}catch{setError('Não foi possível salvar a oportunidade.');return;}}setOpportunities(next);if(simulated)try{localStorage.setItem('sheep:crm:demo:v1',JSON.stringify(next));}catch{setNotice('Salvo somente nesta sessão.');}setNotice('Oportunidade atualizada.');}
- const summary=summarizeCRM(opportunities,pending,followups);const prefix=simulated?'/demo':'';
- return <main className="sheep-workspace"><aside className="sheep-navigation"><a href={simulated?'/demo':'/inbox'} className="sheep-brand">◈ Sheep CRM</a><span className="sheep-nav-caption">SEU ESPAÇO DE TRABALHO</span><nav aria-label="Navegação principal"><a href={simulated?'/demo':'/inbox'}>◉ Conversas</a><a aria-current={!dashboard?'page':undefined} href={`${prefix}/crm`}>▥ Funil comercial</a><a aria-current={dashboard?'page':undefined} href={`${prefix}/dashboard`}>▦ Visão geral</a><a href="/onboarding">⚙ Configuração</a></nav><div className="sheep-nav-bottom">Cada contato, uma oportunidade.</div></aside><section className="sheep-main"><header className="sheep-header"><div><span className="sheep-eyebrow">RELACIONAMENTO E RESULTADOS</span><h1>{dashboard?'Visão geral':'Funil comercial'}</h1><p>{dashboard?'Acompanhe o que precisa de atenção.':'Organize os próximos passos de cada oportunidade.'}</p></div><span className="sheep-status">{simulated?'Demonstração simulada':'Workspace autenticado'}</span></header>{simulated&&<div className="sheep-demo-banner"><strong>Dados simulados.</strong> Alterações locais compartilhadas com a inbox e o dashboard deste navegador. Nenhuma cobrança real.</div>}{error&&<p className="sheep-error" role="alert">{error}</p>}<div className="sheep-sr" role="status">{notice}</div>{loading?<p className="sheep-empty" role="status">Carregando oportunidades…</p>:<><div className="sheep-metrics">{[['Leads novos',summary.leads],['Conversas pendentes',summary.pending],['Follow-ups agendados',summary.followups],['Conversão',`${summary.conversion}%`]].map(([title,value])=><article key={title}><span>{title}</span><strong>{value}</strong></article>)}</div>{dashboard?<section className="sheep-summary"><h2>Distribuição do funil</h2><p>{summary.total} contatos únicos · {summary.won} oportunidades ganhas</p>{stages.map(stage=><div className="sheep-stage-row" key={stage}><span>{stageLabels[stage]}</span><meter aria-label={stageLabels[stage]} min={0} max={Math.max(1,summary.total)} value={opportunities.filter(item=>item.stage===stage).length}/><strong>{opportunities.filter(item=>item.stage===stage).length}</strong></div>)}</section>:opportunities.length===0?<p className="sheep-empty">Ainda não há oportunidades. Contatos elegíveis criam uma oportunidade automaticamente.</p>:<div className="sheep-pipeline">{stages.map(stage=><section className="sheep-stage" key={stage}><h2>{stageLabels[stage]} <span>{opportunities.filter(item=>item.stage===stage).length}</span></h2>{opportunities.filter(item=>item.stage===stage).map(item=><article className="sheep-opportunity" key={item.id}><h3>{item.name}</h3><label>Etapa<select aria-label={`Etapa de ${item.name}`} value={item.stage} onChange={event=>void update(item.id,{stage:event.target.value as Stage})}>{stages.map(value=><option key={value} value={value}>{stageLabels[value]}</option>)}</select></label><label>Responsável{simulated?<input aria-label={`Responsável de ${item.name}`} defaultValue={item.assignee} onBlur={event=>void update(item.id,{assignee:event.target.value})}/>:<button className="sheep-toggle" onClick={()=>void update(item.id,{assignee:'self'})}>{item.assignee?'Reatribuir a mim':'Atribuir a mim'}</button>}</label><label>Próxima ação<input aria-label={`Próxima ação de ${item.name}`} defaultValue={item.nextAction} placeholder="Qual o próximo passo?" onBlur={event=>void update(item.id,{nextAction:event.target.value})}/></label><label>Valor (R$)<input aria-label={`Valor de ${item.name}`} type="number" step="0.01" min="0" defaultValue={item.valueCents===null?'':item.valueCents/100} onBlur={event=>{const value=event.target.value===''?null:Math.round(Number(event.target.value)*100);if(value===null||Number.isSafeInteger(value)&&value>=0)void update(item.id,{valueCents:value});else setError('Valor inválido.');}}/></label><label>Tags<input aria-label={`Tags de ${item.name}`} defaultValue={item.tags.join(', ')} placeholder="Separe por vírgula" onBlur={event=>void update(item.id,{tags:event.target.value.split(',').map(tag=>tag.trim()).filter(Boolean).slice(0,20)})}/></label><a href={simulated?'/demo':'/inbox'}>Abrir conversas ↗</a></article>)}</section>)}</div>}</>}</section></main>;
+"use client";
+import { useNow } from "@/hooks/use-now";
+import { useEffect, useState } from "react";
+import { Navigation, Drawer } from "./a2-ui";
+import { LiveDealForm } from "./live-deal-form";
+import { StageRules } from "./stage-rules";
+import { DashboardOverview } from "./dashboard-overview";
+import { DealDetailsDrawer } from "./deal-details";
+import { KanbanBoard } from "./kanban";
+import { dealsService } from "@/lib/crm/service";
+import { normalizeDeal, moveDeal, money, type Deal } from "@/lib/crm/deals";
+import { type Stage } from "@/lib/crm/model";
+import "./workspace.css";
+export function CRM({
+  dashboard = false,
+  simulated = false,
+  initialId = "",
+}: {
+  dashboard?: boolean;
+  simulated?: boolean;
+  initialId?: string;
+}) {
+  const now = useNow();
+  const [items, setItems] = useState<Deal[]>([]),
+    [loading, setLoading] = useState(true),
+    [error, setError] = useState(""),
+    [notice, setNotice] = useState(""),
+    [busy, setBusy] = useState(false),
+    [selected, setSelected] = useState(initialId),
+    [query, setQuery] = useState(""),
+    [owner, setOwner] = useState(""),
+    [channel, setChannel] = useState(""),
+    [priority, setPriority] = useState(""),
+    [period, setPeriod] = useState(""),
+    [followup, setFollowup] = useState(""),
+    [creating, setCreating] = useState(false),
+    [rulesOpen, setRulesOpen] = useState(false);
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      try {
+        const data = await dealsService(simulated).load();
+        if (active) {
+          setItems(data.map(normalizeDeal));
+          const requested = new URLSearchParams(window.location.search).get(
+            "id",
+          );
+          if (requested) setSelected(requested);
+        }
+      } catch {
+        if (active)
+          setError(
+            "Não foi possível carregar o CRM. Verifique a conexão e tente novamente.",
+          );
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    void load();
+    return () => {
+      active = false;
+    };
+  }, [simulated]);
+  async function persist(
+    next: Deal[],
+    movement?: { id: string; to: Stage; index: number },
+    patch?: { id: string; [key: string]: unknown },
+  ) {
+    if (busy) return;
+    const before = items;
+    setItems(next);
+    setBusy(true);
+    setError("");
+    try {
+      await dealsService(simulated).save(next, { movement, patch });
+      if (!simulated) {
+        try {
+          setItems(await dealsService(false).load());
+        } catch {
+          /* A confirmed write must not be reverted merely because refreshing fails. */
+        }
+      }
+      setNotice("Alteração salva.");
+    } catch {
+      setItems(before);
+      setError("Não foi possível salvar. A alteração foi desfeita.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  function move(id: string, to: Stage, index: number) {
+    void persist(moveDeal(items, id, to, index), { id, to, index });
+  }
+  const visible = items.filter(
+    (item) =>
+      (!query ||
+        `${item.name} ${item.company}`
+          .toLowerCase()
+          .includes(query.toLowerCase())) &&
+      (!owner || item.assignee === owner) &&
+      (!channel || item.channel === channel) &&
+      (!priority || item.priority === priority) &&
+      (!period ||
+        Date.parse(item.createdAt) >= now - Number(period) * 86400000) &&
+      (!followup ||
+        (followup === "overdue"
+          ? !!item.followupAt && Date.parse(item.followupAt) < now
+          : !!item.followupAt)),
+  );
+  const deal = items.find((item) => item.id === selected),
+    won = items.filter((item) => item.stage === "won").length,
+    total = items.reduce(
+      (sum, item) =>
+        sum +
+        (item.stage !== "won" && item.stage !== "lost"
+          ? (item.valueCents ?? 0)
+          : 0),
+      0,
+    ),
+    contacts = new Set(items.map((item) => item.contactId)).size;
+  function patch(value: Partial<Deal>) {
+    if (!deal) return;
+    void persist(
+      items.map((item) => (item.id === deal.id ? { ...item, ...value } : item)),
+      undefined,
+      { id: deal.id, ...value },
+    );
+  }
+  return (
+    <main className="sheep-workspace">
+      <Navigation
+        simulated={simulated}
+        active={dashboard ? "dashboard" : "deals"}
+      />
+      <section className="sheep-main">
+        <div className="a2-topbar">
+          <span>Workspace / {dashboard ? "Visão geral" : "Negócios"}</span>
+          <input
+            aria-label="Buscar no CRM"
+            placeholder="⌕  Buscar no CRM"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+        <header className="sheep-header">
+          <div>
+            <h1>
+              {dashboard ? (
+                simulated ? (
+                  <>
+                    <span className="desktop-greeting">Bom dia, Ana 👋</span>
+                    <span className="mobile-greeting">Olá, Ana! 👋</span>
+                  </>
+                ) : (
+                  "Visão geral"
+                )
+              ) : (
+                "Funil de Negócios"
+              )}
+            </h1>
+            <p>
+              {dashboard
+                ? "Veja o que está acontecendo com seu time hoje."
+                : "Acompanhe oportunidades e próximos passos em um só lugar"}
+            </p>
+          </div>
+          <button className="sheep-primary" onClick={() => setCreating(true)}>
+            + Novo negócio
+          </button>
+        </header>
+        {simulated && (
+          <div className="sheep-demo-banner">
+            <strong>Demonstração.</strong> Dados fictícios salvos neste
+            navegador. Nenhuma integração externa ativa.
+          </div>
+        )}
+        {error && (
+          <p className="sheep-error" role="alert">
+            {error}
+          </p>
+        )}
+        <p className="sheep-sr" role="status">
+          {notice}
+        </p>
+        {loading ? (
+          <p className="sheep-empty" role="status">
+            Carregando oportunidades…
+          </p>
+        ) : dashboard ? (
+          <DashboardOverview
+            items={items}
+            total={total}
+            won={won}
+            contacts={contacts}
+            setSelected={setSelected}
+          />
+        ) : (
+          <>
+            <div className="pipeline-heading-row">
+              <h2 className="pipeline-heading">Pipeline comercial</h2>
+              <button
+                className="sheep-toggle"
+                onClick={() => setRulesOpen(true)}
+              >
+                ✦ Automações
+              </button>
+            </div>
+            <div className="pipeline-summary">
+              <span>{items.length} oportunidades</span>
+              <span>{money(total)} em aberto</span>
+              <span>
+                {
+                  items.filter(
+                    (item) =>
+                      item.followupAt && Date.parse(item.followupAt) < now,
+                  ).length
+                }{" "}
+                follow-ups atrasados
+              </span>
+            </div>
+            <div className="deal-filters">
+              <select aria-label="Pipeline">
+                <option value="default">Pipeline padrão</option>
+              </select>
+              <select
+                aria-label="Responsável"
+                value={owner}
+                onChange={(e) => setOwner(e.target.value)}
+              >
+                <option value="">Todos os responsáveis</option>
+                {[...new Set(items.map((i) => i.assignee).filter(Boolean))].map(
+                  (name) => (
+                    <option key={name}>{name}</option>
+                  ),
+                )}
+              </select>
+              <select
+                aria-label="Canal"
+                value={channel}
+                onChange={(e) => setChannel(e.target.value)}
+              >
+                <option value="">Todos os canais</option>
+                <option value="whatsapp">WhatsApp</option>
+                <option value="instagram">Instagram</option>
+              </select>
+              <select
+                aria-label="Prioridade"
+                value={priority}
+                onChange={(e) => setPriority(e.target.value)}
+              >
+                <option value="">Prioridades</option>
+                <option value="high">Alta</option>
+                <option value="normal">Normal</option>
+                <option value="low">Baixa</option>
+              </select>
+              <select
+                aria-label="Período"
+                value={period}
+                onChange={(e) => setPeriod(e.target.value)}
+              >
+                <option value="">Todo o período</option>
+                <option value="7">Últimos 7 dias</option>
+                <option value="30">Últimos 30 dias</option>
+              </select>
+              <select
+                aria-label="Follow-up"
+                value={followup}
+                onChange={(e) => setFollowup(e.target.value)}
+              >
+                <option value="">Todos os follow-ups</option>
+                <option value="overdue">Atrasados</option>
+                <option value="scheduled">Agendados</option>
+              </select>
+              <input
+                aria-label="Buscar oportunidade"
+                placeholder="⌕ Buscar oportunidade"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </div>
+            <KanbanBoard
+              items={visible}
+              allItems={items}
+              disabled={busy}
+              move={move}
+              open={setSelected}
+            />
+            {!visible.length && (
+              <p className="sheep-empty">Nenhuma oportunidade encontrada.</p>
+            )}
+          </>
+        )}
+        {deal && (
+          <DealDetailsDrawer
+            deal={deal}
+            busy={busy}
+            simulated={simulated}
+            move={move}
+            patch={patch}
+            onClose={() => setSelected("")}
+          />
+        )}
+        {rulesOpen && (
+          <StageRules
+            simulated={simulated}
+            onClose={() => setRulesOpen(false)}
+          />
+        )}
+        {creating && (
+          <Drawer title="Novo negócio" onClose={() => setCreating(false)}>
+            {simulated ? (
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const form = new FormData(event.currentTarget);
+                  const item = normalizeDeal(
+                    {
+                      id: crypto.randomUUID(),
+                      contactId: crypto.randomUUID(),
+                      name: String(form.get("title")),
+                      stage: "new",
+                      assignee: "",
+                      nextAction: "",
+                      valueCents: Math.round(Number(form.get("value")) * 100),
+                      tags: [],
+                    },
+                    items.length,
+                  );
+                  void persist([...items, item]);
+                  setCreating(false);
+                }}
+              >
+                <label>
+                  Nome do negócio
+                  <input required name="title" maxLength={200} />
+                </label>
+                <label>
+                  Valor estimado
+                  <input
+                    name="value"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    defaultValue="0"
+                  />
+                </label>
+                <button className="sheep-primary">
+                  Criar negócio de demonstração
+                </button>
+              </form>
+            ) : (
+              <LiveDealForm
+                items={items}
+                onSaved={(id) => {
+                  void dealsService(false)
+                    .load()
+                    .then(setItems)
+                    .catch(() =>
+                      setError("Não foi possível atualizar a lista."),
+                    );
+                  setCreating(false);
+                  setSelected(id);
+                }}
+              />
+            )}
+          </Drawer>
+        )}
+      </section>
+    </main>
+  );
 }
