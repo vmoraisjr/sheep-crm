@@ -7,3 +7,5 @@
 `MemoryDomainRepository` e `SimulatedChannelAdapter` são **simulados**, efêmeros e exclusivos de desenvolvimento/testes. Não integram Meta, não persistem entre reinícios e não confirmam entrega real. Os adapters oficiais ficam nos módulos de cada canal (#3/#4). O repositório simulado conserva as mesmas fronteiras tenant e chaves de idempotência para testes de contrato.
 
 Aplicar migrations em ordem: `0001_foundation.sql`, `0002_domain.sql`. Testes de domínio: `npm test -- tests/domain.test.ts`; testes SQL contra PostgreSQL/Supabase devem validar RLS e concorrência da RPC. Credenciais Supabase e Meta não foram fornecidas, portanto testes de sandbox Meta permanecem bloqueados; mocks não constituem evidência de integração real.
+
+A origem `meta` também é protegida por trigger na própria tabela `messages`: clientes autenticados não podem inserir mensagens Meta, promover simulações a Meta, nem alterar ou apagar mensagens Meta existentes. O teste SQL cobre acessos diretos à tabela além da RPC.

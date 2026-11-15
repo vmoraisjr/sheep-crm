@@ -5,7 +5,7 @@ export async function proxy(request:NextRequest) {
   let response=NextResponse.next({request});
   if(!hasSupabaseConfig()) return response;
   const {url,key}=supabaseConfig();
-  const supabase=createServerClient(url,key,{cookies:{getAll:()=>request.cookies.getAll(),setAll(values){values.forEach(({name,value})=>request.cookies.set(name,value));response=NextResponse.next({request});values.forEach(({name,value,options})=>response.cookies.set(name,value,options));}}});
+  const supabase=createServerClient(url,key,{cookieOptions:{maxAge:request.cookies.get('a2-remember')?.value==='0'?undefined:31536000},cookies:{getAll:()=>request.cookies.getAll(),setAll(values){values.forEach(({name,value})=>request.cookies.set(name,value));response=NextResponse.next({request});values.forEach(({name,value,options})=>response.cookies.set(name,value,options));}}});
   await supabase.auth.getUser();
   return response;
 }

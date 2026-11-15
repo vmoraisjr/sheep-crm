@@ -1,6 +1,3 @@
-import { signIn, signUp } from './actions';
+import { AuthForm } from '@/components/auth-form';
 import { hasSupabaseConfig } from '@/lib/supabase/config';
-export default async function Login({searchParams}:{searchParams:Promise<{error?:string;message?:string}>}) {
-  const params=await searchParams;
-  return <main className="mx-auto max-w-md p-8 pt-16"><p className="font-bold text-indigo-700">SHEEP CRM</p><h1 className="my-6 text-3xl font-bold">Acesse sua empresa</h1>{!hasSupabaseConfig()?<p role="status">Autenticação indisponível: configure o Supabase.</p>:<form className="space-y-5" action={signIn}>{params.error&&<p role="alert">Não foi possível entrar. Verifique os dados e tente novamente.</p>}{params.message&&<p role="status">Confira seu e-mail para confirmar o cadastro.</p>}<label className="block">E-mail<input name="email" type="email" required autoComplete="email" /></label><label className="block">Senha (mínimo 12 caracteres)<input name="password" type="password" required minLength={12} maxLength={200} autoComplete="current-password" /></label><button className="w-full rounded-lg bg-indigo-700 p-3 text-white">Entrar</button><button formAction={signUp} className="w-full rounded-lg border border-indigo-700 p-3">Criar conta</button></form>}</main>;
-}
+export default function Login(){return <AuthForm mode="login" configured={hasSupabaseConfig()}/>}
